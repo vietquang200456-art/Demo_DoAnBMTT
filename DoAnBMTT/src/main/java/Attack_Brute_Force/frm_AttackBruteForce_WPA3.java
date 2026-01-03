@@ -8,12 +8,12 @@ package WPA3_Demo;
  *
  * @author ASUS
  */
-public class frm_AttackForm extends javax.swing.JFrame {
+public class frm_AttackBruteForce_WPA3 extends javax.swing.JFrame {
 
     /**
      * Creates new form frm_AttackForm
      */
-    public frm_AttackForm() {
+    public frm_AttackBruteForce_WPA3() {
         initComponents();
     }
 
@@ -229,20 +229,21 @@ public class frm_AttackForm extends javax.swing.JFrame {
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(frm_AttackForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frm_AttackBruteForce_WPA3.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(frm_AttackForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frm_AttackBruteForce_WPA3.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(frm_AttackForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frm_AttackBruteForce_WPA3.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(frm_AttackForm.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(frm_AttackBruteForce_WPA3.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
         //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new frm_AttackForm().setVisible(true);
+                new frm_AttackBruteForce_WPA3().setVisible(true);
             }
         });
     }

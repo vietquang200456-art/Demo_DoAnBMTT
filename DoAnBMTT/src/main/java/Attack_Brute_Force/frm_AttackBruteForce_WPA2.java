@@ -8,9 +8,9 @@ import Demo_WPA2.WPA2Engine;
 import java.util.Arrays;
 import java.util.List;
 import javax.swing.JOptionPane;
-public class frm_AttackBruteForce extends javax.swing.JFrame {
+public class frm_AttackBruteForce_WPA2 extends javax.swing.JFrame {
 
-    public frm_AttackBruteForce() {
+    public frm_AttackBruteForce_WPA2() {
         initComponents();
     }
     @SuppressWarnings("unchecked")
@@ -194,7 +194,7 @@ public class frm_AttackBruteForce extends javax.swing.JFrame {
 
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new frm_AttackBruteForce().setVisible(true);
+                new frm_AttackBruteForce_WPA2().setVisible(true);
             }
         });
     }
