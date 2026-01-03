@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package WPA3_Demo;
 
 import java.awt.Color;
@@ -21,7 +17,6 @@ public class frm_Client extends javax.swing.JFrame {
     DataOutputStream out;
     DefaultTableModel model;
     int seq = 1;
-    boolean running = false;
 
     public frm_Client() {
         initComponents();
@@ -144,14 +139,16 @@ public class frm_Client extends javax.swing.JFrame {
                                     .addComponent(btn_connect, javax.swing.GroupLayout.PREFERRED_SIZE, 88, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addGap(38, 38, 38))))
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(131, 131, 131)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGap(132, 132, 132)
+                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(131, 131, 131)
+                                .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(18, 18, 18)
                                 .addComponent(lblStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                        .addGap(0, 118, Short.MAX_VALUE))
+                        .addGap(0, 117, Short.MAX_VALUE))
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -200,81 +197,78 @@ public class frm_Client extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btn_connectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_connectActionPerformed
-        connect();
+        new Thread(() -> {
+            try {
+                // 🔥 tạo mới socket & SAE mỗi lần connect
+                sock = new Socket("127.0.0.1", 8888);
+                in = new DataInputStream(sock.getInputStream());
+                out = new DataOutputStream(sock.getOutputStream());
+
+                sae = new SAE(txtSSID.getText(), txtPass.getText());
+
+                // 🔥 gửi COMMIT chuẩn scalar|element
+                BigInteger myElement = sae.commit();
+                out.writeUTF("COMMIT:" + sae.scalar + "|" + myElement);
+
+                txtScalar.setText(sae.scalar.toString());
+                txtElement.setText(myElement.toString());
+
+                log("STA→AP", "COMMIT", "scalar=" + sae.scalar + ", element=" + myElement);
+                lblStatus.setText("Authenticating...");
+                lblStatus.setForeground(Color.ORANGE);
+
+                // 🔥 lắng nghe AP
+                receive();
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                lbl("Connection Failed", Color.RED);
+            }
+        }).start();
     }//GEN-LAST:event_btn_connectActionPerformed
 
     private void btn_disconnectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_disconnectActionPerformed
         try {
-            running = false;
-            if (out != null) out.writeUTF("DISCONNECT");
-            if (sock != null) sock.close();
-        } catch (Exception e) {}
-        reset();
-        lbl("Disconnected", Color.RED);
-        log("STA", "CTRL", "DISCONNECT");
+            if (out != null) {
+                out.writeUTF("DISCONNECT");
+            }
+            if (sock != null) {
+                sock.close();
+            }
+        } catch (Exception e) {
+        }
+
+        if (sae != null) {
+            sae.reset();
+        }
 
         txtScalar.setText("");
         txtElement.setText("");
         txtShared.setText("");
         txtPTK.setText("");
 
-        lblStatus.setText("Disconnected");
-        lblStatus.setForeground(Color.RED);
-
+        lbl("Disconnected", Color.RED);
         log("STA", "CTRL", "DISCONNECT");
     }//GEN-LAST:event_btn_disconnectActionPerformed
 
-    private void connect(){
-     try {
-            seq = 1;
-            running = true;
-            model.setRowCount(0);
-
-            sock = new Socket("127.0.0.1", 8888);
-            in = new DataInputStream(sock.getInputStream());
-            out = new DataOutputStream(sock.getOutputStream());
-
-            out.writeUTF("PING");
-            if (!in.readUTF().equals("RUNNING")) {
-                lbl("AP not running", Color.RED);
-                sock.close();
-                return;
-            }
-
-            sae = new SAE(txtSSID.getText(), txtPass.getText());
-
-            BigInteger element = sae.commit();
-
-            txtScalar.setText(sae.scalar.toString());
-            txtElement.setText(element.toString());
-
-            log("STA→AP", "COMMIT", "element=" + element);
-            out.writeUTF("COMMIT:" + element);
-
-            lbl("Authenticating...", Color.ORANGE);
-            new Thread(this::receive).start();
-
-        } catch (Exception e) {
-            lbl("AP Offline", Color.RED);
-        }
-    }
     void receive() {
         try {
-            while (running) {          // 🔥 chỉ chạy trong session hiện tại
-                String m = in.readUTF();
-
+            while (true) {
+                String m = in.readUTF();  // nếu AP Stop -> IOException
                 if (m.startsWith("COMMIT:")) {
-                    BigInteger ap = new BigInteger(m.substring(7));
-                    BigInteger ss = sae.compute(ap);
+                    String[] p = m.substring(7).split("\\|");
+                    sae.scalar = new BigInteger(p[0]);
+                    BigInteger peerElement = new BigInteger(p[1]);
+                    sae.element = peerElement;
 
+                    BigInteger ss = sae.compute(sae.scalar);
                     SwingUtilities.invokeLater(() -> txtShared.setText(ss.toString()));
 
-                    byte[] pmk = Crypto.sha(ss.toByteArray());
-                    byte[] ptk = Crypto.hmac(pmk, "4WAY".getBytes());
-
+                    byte[] pmk = Crypto.hmac(ss.toByteArray(), (txtSSID.getText() + txtPass.getText()).getBytes());
+                    byte[] ptk = Crypto.hmac(pmk, "SAE-PTK".getBytes());
                     SwingUtilities.invokeLater(() -> txtPTK.setText(Crypto.hex(ptk)));
 
-                    log("AP→STA", "COMMIT", "element=" + ap);
+                    log("AP→STA", "COMMIT", "scalar=" + sae.scalar + ", element=" + peerElement);
                     out.writeUTF("CONFIRM:" + Crypto.hex(ptk));
                     log("STA→AP", "CONFIRM", "hmac=" + Crypto.hex(ptk));
                 }
@@ -282,34 +276,51 @@ public class frm_Client extends javax.swing.JFrame {
                 if (m.equals("ACCEPT")) {
                     lbl("Connected WPA3-SAE", Color.GREEN);
                     log("AP→STA", "CONFIRM", "ACCEPT");
+                    break;
                 }
 
                 if (m.equals("REJECT")) {
-                    running = false;            // 🔥 khóa session
                     lbl("Wrong Password!", Color.RED);
-                    sock.close();               // 🔥 đá khỏi AP
+                    log("AP→STA", "CONFIRM", "REJECT");
+                    break;
                 }
-
             }
-        } catch (Exception e) {
-            running = false;
-            lbl("AP stopped", Color.RED);
+        } catch (IOException e) {
+            // 🔥 AP stop hoặc mất kết nối
+            lbl("Disconnected from AP", Color.RED);
+            log("STA", "ERROR", "Connection lost");
+            resetClientGUI();
         }
     }
 
-    void reset() {
-        if (sae != null) sae.reset();
-        txtScalar.setText("");
-        txtElement.setText("");
-        txtShared.setText("");
-        txtPTK.setText("");
+    void resetClientGUI() {
+        try {
+            if (sock != null) {
+                sock.close();
+            }
+        } catch (Exception ignored) {
+        }
+        sock = null;
+        in = null;
+        out = null;
+
+        if (sae != null) {
+            sae.reset();
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            txtScalar.setText("");
+            txtElement.setText("");
+            txtShared.setText("");
+            txtPTK.setText("");
+        });
     }
-    
+
     void log(String dir, String type, String detail) {
         model.addRow(new Object[]{seq++, dir, type, detail});
     }
 
-    void lbl(String text, java.awt.Color c) {
+    void lbl(String text, Color c) {
         SwingUtilities.invokeLater(() -> {
             lblStatus.setText(text);
             lblStatus.setForeground(c);

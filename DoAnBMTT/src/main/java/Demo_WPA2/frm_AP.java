@@ -20,6 +20,10 @@ public class frm_AP extends javax.swing.JFrame {
             String ssid = txtSSID.getText();
             String pass = txtPass.getText();
 
+            if(ssid.isEmpty() || pass.isEmpty()){
+                javax.swing.JOptionPane.showMessageDialog(this, "Vui lòng nhập SSID và Password!");
+                return;
+            }
             PMK = Crypto.pbkdf2(pass, ssid);
             txtPMK.setText(Crypto.hex(PMK));
 
