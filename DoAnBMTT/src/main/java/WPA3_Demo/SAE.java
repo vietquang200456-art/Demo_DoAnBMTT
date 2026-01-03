@@ -31,10 +31,17 @@ public class SAE {
         return element;
     }
 
-    public BigInteger compute(BigInteger peer) {
-        shared = peer.multiply(scalar).mod(PRIME);
-        return shared;
-    }
+//    public BigInteger compute(BigInteger peer) {
+//        shared = peer.multiply(scalar).mod(PRIME);
+//        return shared;
+//    }
+    
+    public BigInteger compute(BigInteger peerScalar) {
+    return shared = element
+            .add(peerScalar.multiply(PWE))
+            .mod(PRIME)
+            .modPow(scalar, PRIME);
+}
 
     public void reset() {
         scalar = null;
