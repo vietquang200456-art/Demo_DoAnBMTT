@@ -5,6 +5,8 @@ import javax.swing.*;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class frm_Attack_WPA3 extends javax.swing.JFrame {
@@ -19,6 +21,19 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
         tblAttack.setModel(model);
     }
 
+    List<String> dict = Arrays.asList(
+            "12345678",
+            "password",
+            "admin123",
+            "qwertyui",
+            "welcome1",
+            "test1234",
+            "iloveyou",
+            "letmein",
+            "abc12345"
+    );
+    int dictIndex = 0;
+
     void startAttack() {
         running = true;
         new Thread(() -> {
@@ -27,7 +42,11 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                 int delay = Integer.parseInt(txtDelay.getText());
 
                 while (running) {
-                    String pass = "pass" + count; // password sai giả lập
+                    // String pass = "pass" + count;
+                    if (dictIndex >= dict.size()) {
+                        dictIndex = 0;
+                    }
+                    String pass = dict.get(dictIndex++);
 
                     Socket s = new Socket("localhost", 8888);
                     DataInputStream in = new DataInputStream(s.getInputStream());
@@ -42,7 +61,14 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                     if (res.startsWith("ANTI_CLOG")) {
                         model.addRow(new Object[]{count, pass, "TOKEN REQUIRED"});
                     } else if (res.startsWith("BLOCK")) {
-                        model.addRow(new Object[]{count, pass, res});
+                        int sec = Integer.parseInt(res.split(":")[1]);
+                        model.addRow(new Object[]{count, pass, "BLOCKED " + sec + "s"});
+
+                        SwingUtilities.invokeLater(() -> btnAttack.setEnabled(false));
+                        startCountdown(sec);
+
+                        running = false;
+                        return;
                     } else if (res.startsWith("COMMIT")) {
                         String[] p = res.substring(7).split("\\|");
                         sae.scalar = new BigInteger(p[0]);
@@ -69,6 +95,23 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
         }).start();
     }
 
+    void startCountdown(int sec) {
+        new Thread(() -> {
+            try {
+                for (int i = sec; i > 0; i--) {
+                    int s = i;
+                    SwingUtilities.invokeLater(() -> lblStatus.setText("BLOCKED (" + s + "s)"));
+                    Thread.sleep(1000);
+                }
+                SwingUtilities.invokeLater(() -> {
+                    lblStatus.setText("Idle");
+                    btnAttack.setEnabled(true);
+                });
+            } catch (Exception e) {
+            }
+        }).start();
+    }
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -81,10 +124,10 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
         jLabel3 = new javax.swing.JLabel();
         txtDelay = new javax.swing.JTextField();
         jLabel4 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
+        lblStatus = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tblAttack = new javax.swing.JTable();
-        btn_start_attack = new javax.swing.JButton();
+        btnAttack = new javax.swing.JButton();
 
         jTextField1.setText("jTextField1");
 
@@ -100,7 +143,7 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
 
         jLabel4.setText("Status:");
 
-        jLabel5.setText("Idle");
+        lblStatus.setText("Idle");
 
         tblAttack.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -115,10 +158,10 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
         ));
         jScrollPane1.setViewportView(tblAttack);
 
-        btn_start_attack.setText("Start Attack");
-        btn_start_attack.addActionListener(new java.awt.event.ActionListener() {
+        btnAttack.setText("Start Attack");
+        btnAttack.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btn_start_attackActionPerformed(evt);
+                btnAttackActionPerformed(evt);
             }
         });
 
@@ -142,7 +185,7 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(txtDelay)
                                     .addComponent(txtSSID)
-                                    .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))))
+                                    .addComponent(lblStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jLabel4, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -151,7 +194,7 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                 .addContainerGap())
             .addGroup(layout.createSequentialGroup()
                 .addGap(103, 103, 103)
-                .addComponent(btn_start_attack)
+                .addComponent(btnAttack)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
@@ -170,24 +213,22 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel4)
-                    .addComponent(jLabel5))
+                    .addComponent(lblStatus))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 129, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(btn_start_attack)
+                .addComponent(btnAttack)
                 .addContainerGap(34, Short.MAX_VALUE))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void btn_start_attackActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_start_attackActionPerformed
-        startAttack();
-    }//GEN-LAST:event_btn_start_attackActionPerformed
+    private void btnAttackActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAttackActionPerformed
+        if (!running)
+            startAttack();
+    }//GEN-LAST:event_btnAttackActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
@@ -221,15 +262,15 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btn_start_attack;
+    private javax.swing.JButton btnAttack;
     private javax.swing.JButton jButton1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel5;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextField jTextField1;
+    private javax.swing.JLabel lblStatus;
     private javax.swing.JTable tblAttack;
     private javax.swing.JTextField txtDelay;
     private javax.swing.JTextField txtSSID;

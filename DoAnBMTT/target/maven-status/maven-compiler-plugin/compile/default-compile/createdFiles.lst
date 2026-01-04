@@ -1,5 +1,4 @@
 WPA3_Demo\frm_Attack_WPA3.class
-WPA3_Demo\frm_Attack.class
 WPA3_Demo\frm_AP$2.class
 WPA3_Demo\frm_Client$2.class
 Demo_WPA2\frm_AP.class
@@ -25,7 +24,6 @@ WPA3_Demo\Rate.class
 Attack_Brute_Force\frm_AttackBruteForce_WPA3$2.class
 Demo_WPA2\WPA2Engine.class
 Attack_Brute_Force\frm_AttackBruteForce_WPA2$2.class
-WPA3_Demo\frm_Attack$1.class
 Attack_Brute_Force\frm_AttackBruteForce_WPA2.class
 Attack_Brute_Force\BruteForceEngine.class
 Demo_WPA2\frm_AP$1.class
