@@ -22,6 +22,8 @@ public class frm_AP extends javax.swing.JFrame {
     HashMap<String, Long> blockUntil = new HashMap<>();
     HashMap<String, Long> lastAttempt = new HashMap<>();
     HashMap<String, Rate> rateMap = new HashMap<>();
+    static final byte[] ANTI_CLOG_KEY = "WPA3-ANTI-CLOG".getBytes();
+    HashMap<String, String> tokenMap = new HashMap<>();
 
     public frm_AP() {
         initComponents();
@@ -106,6 +108,14 @@ public class frm_AP extends javax.swing.JFrame {
                 }
 
                 if (m.startsWith("COMMIT:")) {
+                    Rate r = rateMap.getOrDefault(ip, new Rate());
+                    if (r.count >= 3) {
+                        String token = makeToken(ip);
+                        tokenMap.put(ip, token);
+                        out.writeUTF("ANTI_CLOG:" + token);
+                        log("AP→STA", "CTRL", "ANTI-CLOG TOKEN REQUIRED");
+                        continue;
+                    }
                     String[] p = m.substring(7).split("\\|");
                     sae.scalar = new BigInteger(p[0]);
                     sae.element = new BigInteger(p[1]);
@@ -124,6 +134,18 @@ public class frm_AP extends javax.swing.JFrame {
 
                     out.writeUTF("COMMIT:" + sae.scalar + "|" + myElement);
                     log("AP→STA", "COMMIT", "scalar=" + sae.scalar + ", element=" + myElement);
+                }
+                if (m.startsWith("TOKEN:")) {
+                    String t = m.substring(6);
+                    if (t.equals(tokenMap.get(ip))) {
+                        rateMap.remove(ip); // cho làm lại
+                        out.writeUTF("TOKEN_OK");
+                        log("AP→STA", "CTRL", "TOKEN ACCEPTED");
+                    } else {
+                        out.writeUTF("DROP");
+                        log("AP→STA", "CTRL", "DROP (Bad Token)");
+                        cli.close();
+                    }
                 }
 
                 if (m.startsWith("CONFIRM:")) {
@@ -144,21 +166,26 @@ public class frm_AP extends javax.swing.JFrame {
                         //   lbl("Wrong Password", Color.RED);
                         Rate r = rateMap.getOrDefault(ip, new Rate());
 
-                        if (r.count == 0) {
-                            r.firstTime = System.currentTimeMillis();
-                        }
+//                        if (r.count == 0) {
+//                            r.firstTime = System.currentTimeMillis();
+//                        }
                         r.count++;
                         rateMap.put(ip, r);
-
-                        if (r.count >= 3) {
-                            blockUntil.put(ip, System.currentTimeMillis() + 10_000);
+                        if (r.count >= 3 && r.count < 5) {
+                            blockUntil.put(ip, System.currentTimeMillis() + 15000);
                         }
                         if (r.count >= 5) {
-                            blockUntil.put(ip, System.currentTimeMillis() + 60_000);
+                            blockUntil.put(ip, System.currentTimeMillis() + 60000);
                         }
-                        if (r.count >= 8) {
-                            blockUntil.put(ip, System.currentTimeMillis() + 300_000);
-                        }
+//                        if (r.count >= 3) {
+//                            blockUntil.put(ip, System.currentTimeMillis() + 15_000);
+//                        }
+//                        if (r.count >= 5) {
+//                            blockUntil.put(ip, System.currentTimeMillis() + 60_000);
+//                        }
+//                        if (r.count >= 8) {
+//                            blockUntil.put(ip, System.currentTimeMillis() + 300_000);
+//                        }
 
                     }
                 }
@@ -175,6 +202,11 @@ public class frm_AP extends javax.swing.JFrame {
         } catch (Exception e) {
             //lbl("Client Disconnected", Color.RED);
         }
+    }
+
+    // Hàm sinh token
+    String makeToken(String ip) {
+        return Crypto.hex(Crypto.hmac(ANTI_CLOG_KEY, ip.getBytes()));
     }
 
     // ======================== LOG & LABEL ========================
