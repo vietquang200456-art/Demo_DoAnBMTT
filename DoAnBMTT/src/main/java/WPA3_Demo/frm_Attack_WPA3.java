@@ -81,9 +81,9 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
                         String c = in.readUTF();
 
                         if (c.equals("REJECT")) {
-                            model.addRow(new Object[]{count, pass, "REJECT"});
+                            model.addRow(new Object[]{count, pass, "FAIL"});
                         } else {
-                            model.addRow(new Object[]{count, pass, "CONNECTED"});
+                            model.addRow(new Object[]{count, pass, "FAIL"});
                         }
                     }
 
@@ -225,6 +225,21 @@ public class frm_Attack_WPA3 extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnAttackActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAttackActionPerformed
+        if(txtSSID.getText().trim().isEmpty()){
+            JOptionPane.showMessageDialog(this,"Bạn chưa nhập tên mạng!");
+            return;
+        }
+        if(txtDelay.getText().trim().isEmpty()){
+            JOptionPane.showMessageDialog(this,"Bạn chưa nhập thời gian delay!");
+            return;
+        }
+        try{
+            Integer.parseInt(txtDelay.getText());
+        }catch(Exception e){
+            JOptionPane.showMessageDialog(this,"Thời gian delay phải nhập số!");
+            txtDelay.requestFocus();
+            return;
+        }
         if (!running)
             startAttack();
     }//GEN-LAST:event_btnAttackActionPerformed
