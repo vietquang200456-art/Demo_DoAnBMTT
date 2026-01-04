@@ -11,6 +11,9 @@ import javax.swing.table.DefaultTableModel;
 
 public class frm_Client extends javax.swing.JFrame {
 
+    javax.swing.Timer blockTimer;
+    long blockRemain = 0;
+
     SAE sae;
     Socket sock;
     DataInputStream in;
@@ -195,6 +198,10 @@ public class frm_Client extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btn_connectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_connectActionPerformed
+        if (!btn_connect.isEnabled()) {
+            return;
+        }
+
         new Thread(() -> {
             try {
                 // 🔥 tạo mới socket & SAE mỗi lần connect
@@ -282,9 +289,9 @@ public class frm_Client extends javax.swing.JFrame {
                     log("AP→STA", "CONFIRM", "REJECT");
                     break;
                 }
-                if (m.equals("BLOCKED")) {
-                    lbl("Temporarily blocked by AP", Color.RED);
-                    log("AP→STA", "CTRL", "BLOCKED");
+                if (m.startsWith("BLOCK:")) {
+                    long sec = Long.parseLong(m.substring(6));
+                    startBlock(sec);
                     return;
                 }
 
@@ -295,6 +302,24 @@ public class frm_Client extends javax.swing.JFrame {
             log("STA", "ERROR", "Connection lost");
             resetClientGUI();
         }
+    }
+
+    void startBlock(long sec) {
+        blockRemain = sec;
+        btn_connect.setEnabled(false);
+        lbl("BLOCKED " + blockRemain + "s", Color.RED);
+
+        blockTimer = new javax.swing.Timer(1000, e -> {
+            blockRemain--;
+            if (blockRemain <= 0) {
+                blockTimer.stop();
+                btn_connect.setEnabled(true);
+                lbl("Ready", Color.GREEN);
+            } else {
+                lbl("BLOCKED " + blockRemain + "s", Color.RED);
+            }
+        });
+        blockTimer.start();
     }
 
     void resetClientGUI() {

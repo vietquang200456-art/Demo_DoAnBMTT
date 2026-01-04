@@ -21,6 +21,7 @@ public class frm_AP extends javax.swing.JFrame {
     HashMap<String, Integer> failCount = new HashMap<>();
     HashMap<String, Long> blockUntil = new HashMap<>();
     HashMap<String, Long> lastAttempt = new HashMap<>();
+    HashMap<String, Rate> rateMap = new HashMap<>();
 
     public frm_AP() {
         initComponents();
@@ -85,28 +86,23 @@ public class frm_AP extends javax.swing.JFrame {
             DataOutputStream out = new DataOutputStream(cli.getOutputStream());
 
             sae = new SAE(txtSSID.getText(), txtPass.getText());
-            log("STA→AP", "CONNECT", "Client connect");
+            log("STA→AP", "CONNECT", "Client connected");
 
             while (apRunning && !cli.isClosed()) {
                 String m = in.readUTF();
-//              String ip = cli.getInetAddress().getHostAddress();
                 String ip = cli.getInetAddress().getHostAddress();
-                long now = System.currentTimeMillis();
 
-//                long last = lastAttempt.getOrDefault(ip, 0L);
-//                if (now - last < 1500) { // thử nhanh hơn 1.5 giây
-//                    blockUntil.put(ip, now + 30000); // block 30 giây
-//                    out.writeUTF("BLOCKED");
-//                    log("AP→ATTACK", "ANTI-CLOG", "Rate limit block " + ip);
-//                    cli.close();
-//                    return;
-//                }
-//                lastAttempt.put(ip, now);
-                if (blockUntil.containsKey(ip) && System.currentTimeMillis() < blockUntil.get(ip)) {
-                    out.writeUTF("BLOCKED");
-                    log("AP→STA", "CTRL", "BLOCKED " + ip);
-                    cli.close();
-                    return;
+                if (blockUntil.containsKey(ip)) {
+                    long remain = (blockUntil.get(ip) - System.currentTimeMillis()) / 1000;
+                    if (remain > 0) {
+                        out.writeUTF("BLOCK:" + remain);
+                        log("AP→STA", "CTRL", "BLOCK " + remain + "s");
+                        cli.close();
+                        return;
+                    } else {
+                        blockUntil.remove(ip);
+                        rateMap.remove(ip);
+                    }
                 }
 
                 if (m.startsWith("COMMIT:")) {
@@ -146,18 +142,24 @@ public class frm_AP extends javax.swing.JFrame {
                         out.writeUTF("REJECT");
                         log("AP→STA", "CONFIRM", "REJECT");
                         //   lbl("Wrong Password", Color.RED);
-                        int f = failCount.getOrDefault(ip, 0) + 1;
-                        failCount.put(ip, f);
+                        Rate r = rateMap.getOrDefault(ip, new Rate());
 
-                        if (f == 3) {
+                        if (r.count == 0) {
+                            r.firstTime = System.currentTimeMillis();
+                        }
+                        r.count++;
+                        rateMap.put(ip, r);
+
+                        if (r.count >= 3) {
                             blockUntil.put(ip, System.currentTimeMillis() + 10_000);
                         }
-                        if (f == 5) {
+                        if (r.count >= 5) {
                             blockUntil.put(ip, System.currentTimeMillis() + 60_000);
                         }
-                        if (f >= 8) {
+                        if (r.count >= 8) {
                             blockUntil.put(ip, System.currentTimeMillis() + 300_000);
                         }
+
                     }
                 }
 
@@ -165,7 +167,7 @@ public class frm_AP extends javax.swing.JFrame {
                     log("STA→AP", "CTRL", "DISCONNECT");
                     sae.reset();
                     cli.close();
-                    //   lbl("Client Disconnected", Color.RED);
+                    //lbl("Client Disconnected", Color.RED);
                     break;
                 }
             }

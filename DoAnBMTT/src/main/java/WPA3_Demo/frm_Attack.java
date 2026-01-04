@@ -3,14 +3,15 @@ package WPA3_Demo;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.*;
+import java.math.BigInteger;
 import java.net.Socket;
+
 
 public class frm_Attack extends javax.swing.JFrame {
 
     DefaultTableModel model = new DefaultTableModel(
-            new String[]{"#", "Password", "Result"}, 0);
+            new String[]{"#", "Password", "AP Response"}, 0);
 
     JTextField txtSSID = new JTextField("MyNetwork");
     JTextField txtDelay = new JTextField("300");
@@ -18,77 +19,98 @@ public class frm_Attack extends javax.swing.JFrame {
     JTable table = new JTable(model);
     JLabel lblStatus = new JLabel("Idle");
 
-    String[] dictionary = {
-        "123456", "admin", "qwerty", "password",
-        "iloveyou", "12345678", "00000000", "letmein",
-        "viettel", "fpttelecom"
+    String[] demoDict = {
+        "12345678","password","admin123","qwerty","letmein",
+        "wifi12345","123456789","11111111","00000000","secret123"
     };
 
     public frm_Attack() {
-        setTitle("WPA3 Online Brute-force Attack Simulator");
-        setSize(480, 400);
+        setTitle("WPA3 Online Attack + Anti-Clogging Demo");
+        setSize(540, 420);
         setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        JPanel top = new JPanel(new GridLayout(3, 2));
-        top.add(new JLabel("SSID:"));
-        top.add(txtSSID);
-        top.add(new JLabel("Delay (ms):"));
-        top.add(txtDelay);
-        top.add(new JLabel("Status:"));
-        top.add(lblStatus);
+        JPanel top = new JPanel(new GridLayout(3,2));
+        top.add(new JLabel("SSID:"));   top.add(txtSSID);
+        top.add(new JLabel("Delay (ms):")); top.add(txtDelay);
+        top.add(new JLabel("Status:")); top.add(lblStatus);
 
         add(top, BorderLayout.NORTH);
         add(new JScrollPane(table), BorderLayout.CENTER);
         add(btnStart, BorderLayout.SOUTH);
 
-        btnStart.addActionListener(e -> startAttack());
+        btnStart.addActionListener(e -> new Thread(this::runAttack).start());
     }
 
-    void startAttack() {
+    void runAttack() {
         model.setRowCount(0);
-        new Thread(() -> {
-            lbl("Attacking...", Color.ORANGE);
-            for (int i = 0; i < dictionary.length; i++) {
-                String pw = dictionary[i];
-                try {
-                    Socket s = new Socket("127.0.0.1", 8888);
-                    DataOutputStream out = new DataOutputStream(s.getOutputStream());
-                    DataInputStream in = new DataInputStream(s.getInputStream());
+        setStatus("Running...", Color.ORANGE);
 
-                    SAE sae = new SAE(txtSSID.getText(), pw);
-                    out.writeUTF("COMMIT:" + sae.scalar + "|" + sae.commit());
+        for(int i=0;i<demoDict.length;i++){
+            String pw = demoDict[i];
 
-                    String res = in.readUTF();   // COMMIT / BLOCKED / REJECT
+            try(Socket s = new Socket("127.0.0.1",8888)){
+                DataInputStream in = new DataInputStream(s.getInputStream());
+                DataOutputStream out = new DataOutputStream(s.getOutputStream());
 
-                    if (res.equals("BLOCKED")) {
-                        log(i + 1, pw, "❌ BLOCKED by WPA3");
-                        lbl("BLOCKED", Color.RED);
-                        s.close();
-                        break;
-                    } else {
-                        log(i + 1, pw, "Rejected");
-                    }
-                    s.close();
-                    Thread.sleep(Integer.parseInt(txtDelay.getText()));
-                } catch (Exception ex) {
-                    log(i + 1, pw, "Error");
+                // SAE commit
+                SAE sae = new SAE(txtSSID.getText(), pw);
+                out.writeUTF("COMMIT|" + sae.scalar + "|" + sae.commit());
+
+                String r1 = in.readUTF();
+
+                // Anti-Clogging activated
+                if(r1.startsWith("TOKEN|")){
+                    log(i+1,pw,"TOKEN issued (bot challenged)");
+                    continue; // bot không giữ token → drop
                 }
+
+                // Continue SAE confirm
+                if(r1.equals("CONTINUE")){
+                    out.writeUTF("CONFIRM|");
+                    String r2 = in.readUTF();
+
+                    if(r2.equals("ACCEPT")){
+                        log(i+1,pw,"SUCCESS");
+                        JOptionPane.showMessageDialog(this,"Password cracked: "+pw);
+                        return;
+                    }
+                    if(r2.startsWith("BLOCK")){
+                        log(i+1,pw,r2);
+                        long sec = Long.parseLong(r2.split("\\|")[1]);
+                        countdown(sec);
+                        return;
+                    }
+                    log(i+1,pw,"REJECT");
+                }
+
+                Thread.sleep(Integer.parseInt(txtDelay.getText()));
+            }catch(Exception e){
+                log(i+1,pw,"ERROR");
             }
-            lbl("Done", Color.GREEN);
-        }).start();
+        }
+
+        setStatus("Finished", Color.GREEN);
     }
 
-    void log(int i, String pw, String r) {
-        SwingUtilities.invokeLater(() -> model.addRow(new Object[]{i, pw, r}));
+    void countdown(long sec){
+        for(long i=sec;i>0;i--){
+            setStatus("BLOCKED "+i+"s", Color.RED);
+            try{Thread.sleep(1000);}catch(Exception e){}
+        }
+        setStatus("Ready", Color.GREEN);
     }
 
-    void lbl(String t, Color c) {
+    void log(int i,String pw,String r){
+        SwingUtilities.invokeLater(() -> model.addRow(new Object[]{i,pw,r}));
+    }
+
+    void setStatus(String t, Color c){
         SwingUtilities.invokeLater(() -> {
             lblStatus.setText(t);
             lblStatus.setForeground(c);
         });
     }
-
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -116,7 +138,6 @@ public class frm_Attack extends javax.swing.JFrame {
             }
         });
     }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     // End of variables declaration//GEN-END:variables
 }
